@@ -1,24 +1,36 @@
 import numpy as np
 import cv2
+import dlib
 
 cap = cv2.VideoCapture(0)
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascades_frontalface_default.xml')
-eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascades_eye.xml')
+
+# Load facial landmarks predictor
+predictor_path = "path/to/shape_predictor_68_face_landmarks.dat"  # You need to download this file
+predictor = dlib.shape_predictor(predictor_path)
 
 while True:
-    ret , frame = cap.read()
-    gray  = cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
-    for(x,y,w,h) in faces:
-        cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),5)
-        roi_gray = gray[y:y+w,x:x+w ]
-        roi_color = frame[y:y+h ,x:x+w]
-        eyes = eye_cascade.detectMultiScale(roi_gray,1.3,5)
-        for (ex,ey,ew,eh) in eyes:
-            cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),5)
+    ret, frame = cap.read()
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-    cv2.imshow("Frame",frame)
-    if cv2.waitKey(1) == ord('r'):
+    # Detect faces
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5, minSize=(30, 30))
+
+    for (x, y, w, h) in faces:
+        # Extract facial landmarks
+        rect = dlib.rectangle(int(x), int(y), int(x + w), int(y + h))
+        landmarks = predictor(gray, rect)
+
+        # Get coordinates of the left and right eyes
+        left_eye_coords = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(36, 42)]
+        right_eye_coords = [(landmarks.part(i).x, landmarks.part(i).y) for i in range(42, 48)]
+
+        # Draw rectangles around eyes
+        cv2.polylines(frame, [np.array(left_eye_coords)], isClosed=True, color=(0, 255, 0), thickness=2)
+        cv2.polylines(frame, [np.array(right_eye_coords)], isClosed=True, color=(0, 255, 0), thickness=2)
+
+    cv2.imshow("Frame", frame)
+
+    if cv2.waitKey(1) == ord('q'):
         break
 
 cap.release()
